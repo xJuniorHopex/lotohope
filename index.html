@@ -55,7 +55,7 @@ ul{list-style:none;margin:0;padding:0}li{display:flex;gap:10px;align-items:cente
 <header><div><h1>LotHope v2.0</h1><p id="sub"></p></div><div><div class="ap"><select id="th" aria-label="Tema de colores"><option value="auto">Tema automático</option><option value="claro">Claro</option><option value="oscuro">Oscuro</option><option value="oceano">Océano</option><option value="bosque">Bosque</option><option value="atardecer">Atardecer</option><option value="medianoche">Medianoche</option><option value="gamer">Gamer</option></select><select id="sz" aria-label="Tamaño de letra"><option value="15">Letra normal</option><option value="17">Letra grande</option><option value="19">Letra extra grande</option></select></div><button class="btn sec" id="hx">Descargar base actualizada (.xlsx)</button><div id="bk" class="note"></div></div></header>
 <nav role="tablist"><button data-t="reg" aria-selected="true">Registrar sorteo</button><button data-t="his" aria-selected="false">Historial</button><button data-t="est" aria-selected="false">Estadísticas</button><button data-t="gen" aria-selected="false">Jugadas y análisis</button><button data-t="dat" aria-selected="false">Datos y respaldo</button></nav>
 
-<section id="reg"><div class="card"><h2>Registro automático</h2><p id="auto" class="note">Revisando…</p><div class="row"><button class="btn sec" id="sync">Buscar resultado ahora</button></div><p class="note">Cada miércoles y sábado, pasadas las 9:10 PM (hora RD), la app busca el resultado del Loto y lo guarda sola. Funciona cuando la app está abierta; si estaba cerrada, se pone al día al abrirla.</p></div>
+<section id="reg"><div class="card"><h2>Registro automático</h2><p id="auto" class="note">Revisando…</p><div class="row"><button class="btn sec" id="sync">Buscar resultado ahora</button></div><p class="note">Netlify busca y guarda el resultado automáticamente cada miércoles y sábado a las 9:10 PM (hora RD), aunque cierres esta página. También puedes solicitar una búsqueda manual.</p></div>
 <div class="card"><h2>Nuevo sorteo</h2>
 <div class="row"><div><label for="fd">Fecha</label><input type="date" id="fd"></div>
 <div><label for="mas">Más</label><select id="mas"></select></div>
@@ -373,70 +373,30 @@ let P={th:'auto',sz:'15'};try{P=Object.assign(P,JSON.parse(localStorage.getItem(
 $('#th').value=P.th;$('#sz').value=P.sz;apply($('#th').value,$('#sz').value);
 ['#th','#sz'].forEach(s=>$(s).onchange=()=>{apply($('#th').value,$('#sz').value);try{localStorage.setItem(PK,JSON.stringify({th:$('#th').value,sz:$('#sz').value}))}catch(e){}});
 
-/* ===== Registro automático (miércoles y sábado, 9 PM hora RD) ===== */
-const nowRD=()=>new Date(new Date().toLocaleString('en-US',{timeZone:'America/Santo_Domingo'}));
-function dueDraws(){
-  if(!D.length)return [];
-  const n=nowRD(),last=D[D.length-1].d,t=new Date(n.getFullYear(),n.getMonth(),n.getDate()),out=[];
-  for(let i=0;i<28;i++){
-    const k=iso(t),dw=t.getDay();
-    if((dw===3||dw===6)&&(i>0||n.getHours()*60+n.getMinutes()>=21*60+10)&&k>last&&!D.some(r=>r.d===k))out.push(k);
-    t.setDate(t.getDate()-1);
-  }
-  return out.reverse();
-}
-function parseLoto(html){
-  const tx=html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ');
-  const a=tx.match(/Loto\s*:\s*((?:\d{1,2}\D{1,8}){5}\d{1,2})/i);
-  if(!a)return null;
-  const n=[...new Set(a[1].match(/\d+/g).map(Number))].sort((x,y)=>x-y);
-  if(n.length!==6||n.some(x=>x<1||x>40))return null;
-  const mm=tx.match(/Loto\s*M[áa]s\s*:\s*(\d{1,2})/i),ss=tx.match(/S[úu]per\s*M[áa]s\s*:\s*(\d{1,2})/i);
-  let m=mm?+mm[1]:null,s=ss?+ss[1]:null;
-  if(m<1||m>12||s<1||s>15||(m==null)!==(s==null)){m=null;s=null;}
-  return{n,m,s};
-}
-async function getTxt(u){
-  for(const p of ['https://api.allorigins.win/raw?url=','https://corsproxy.io/?url=']){
-    try{
-      const c=new AbortController(),id=setTimeout(()=>c.abort(),12000);
-      const r=await fetch(p+encodeURIComponent(u),{signal:c.signal});clearTimeout(id);
-      if(r.ok){const t=await r.text();if(t.length>500)return t;}
-    }catch(e){}
-  }
-  return null;
-}
-function srcs(k){
-  const t=pd(k),dia=t.getDay()===3?'miercoles':'sabado',b=`https://revistamercado.do/actualidad/resultados-de-leidsa-del-${dia}-${t.getDate()}-de-${MES[t.getMonth()].toLowerCase()}-de-${t.getFullYear()}`;
-  return [b+'-en-republica-dominicana/',b+'/'];
-}
-let syncing=false,autoStarted=false;
+/* ===== Registro automático mediante Netlify Functions ===== */
 async function autoSync(manual){
-  if(syncing||!D.length)return;
-  syncing=true;const st=$('#auto'),b=$('#sync');b.disabled=true;
+  const st=$('#auto'),b=$('#sync');
+  if(b.disabled)return;
+  b.disabled=true;
+  st.textContent='Consultando el servicio automático…';
   try{
-    const due=dueDraws();
-    if(!due.length){st.textContent='✅ Al día. Último sorteo registrado: '+fmt(D[D.length-1].d)+'. Revisado '+new Date().toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'})+'.';return;}
-    let added=0;
-    for(const k of due){
-      st.textContent='Buscando el sorteo del '+fmt(k)+'…';
-      const urls=srcs(k);if(k===due[due.length-1])urls.unshift('https://www.leidsa.com/');
-      let r=null;
-      for(const u of urls){const h=await getTxt(u);r=h&&parseLoto(h);if(r)break;}
-      if(!r||D.slice(-3).some(x=>x.n.join()===r.n.join()))continue;
-      await sorteosRef.doc('auto-'+k).set({d:k,...r});added++;
-      toast('Sorteo del '+fmt(k)+' registrado automáticamente: '+r.n.join(' ')+(r.m!=null?' | Más '+r.m+', Súper Más '+r.s:''));
+    const r=await fetch('/.netlify/functions/sync-loto',{method:'POST'});
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'No se pudo completar la búsqueda.');
+    if(data.added>0){
+      st.textContent='✅ Se registraron '+data.added+' sorteo(s) automáticamente.';
+      toast('Se agregaron '+data.added+' resultado(s) a la nube.');
+    }else{
+      st.textContent=data.message||'✅ No hay resultados pendientes. LotHope está al día.';
+      if(manual)toast(data.message||'No hay resultados nuevos.');
     }
-    const left=due.length-added;
-    st.textContent=left?'⏳ Aún no encuentro '+(left>1?left+' sorteos':'el sorteo del '+fmt(due[due.length-1]))+'. Reintento en 30 minutos; también puedes registrarlo a mano abajo.':'✅ Registro automático completado.';
-    if(left&&manual)toast('No encontré el resultado todavía.',1);
   }catch(e){
-    st.textContent='⚠️ Error al registrar: '+e.message;
-  }finally{syncing=false;b.disabled=false;}
+    st.textContent='⚠️ No se pudo consultar el servicio: '+e.message;
+    if(manual)toast('Error al buscar: '+e.message,1);
+  }finally{b.disabled=false;}
 }
 $('#sync').onclick=()=>autoSync(true);
-setInterval(()=>autoSync(false),30*60*1000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)autoSync(false)});
+
 
 sorteosRef.orderBy('d','asc').onSnapshot(
   snap=>{
