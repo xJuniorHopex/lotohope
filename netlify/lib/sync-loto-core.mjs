@@ -39,7 +39,14 @@ function articleUrls(key) {
   const weekday = new Date(Date.UTC(y,m-1,d)).getUTCDay();
   const day = weekday === 3 ? "miercoles" : "sabado";
   const mercado = `https://revistamercado.do/actualidad/resultados-de-leidsa-del-${day}-${d}-de-${month}-de-${y}-en-republica-dominicana/`;
-  return [cdn, mercado, mercado.replace(/-en-republica-dominicana\/$/, "/")];
+  return [
+    "https://www.leidsa.com/",
+    "https://www.conectate.com.do/loterias/",
+    "https://www.conectate.com.do/loterias/leidsa/loto-mas/",
+    cdn,
+    mercado,
+    mercado.replace(/-en-republica-dominicana\/$/, "/")
+  ];
 }
 function parseResult(html) {
   const text = html
@@ -62,6 +69,64 @@ function parseResult(html) {
   if (m < 1 || m > 12 || s < 1 || s > 15 || ((m == null) !== (s == null))) { m=null; s=null; }
   return { n: nums, m, s };
 }
+
+function plainText(html) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&#0*39;|&apos;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/\s+/g, " ");
+}
+
+function validEight(values) {
+  const nums = values.map(Number);
+  if (nums.length !== 8) return null;
+  const main = nums.slice(0, 6);
+  const more = nums[6];
+  const superMore = nums[7];
+  if (main.some(n => !Number.isInteger(n) || n < 1 || n > 40)) return null;
+  if (!Number.isInteger(more) || more < 1 || more > 12) return null;
+  if (!Number.isInteger(superMore) || superMore < 1 || superMore > 15) return null;
+  return { n: [...main].sort((a,b)=>a-b), m: more, s: superMore };
+}
+
+function parseOfficialLeidsa(html, date) {
+  const text = plainText(html);
+  const [year, month, day] = date.split("-").map(Number);
+  const monthShort = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"][month - 1];
+  const datePattern = new RegExp("Resultados\\s+del\\s+" + day + "\\s+" + monthShort + "\\s+" + year, "i");
+  const match = datePattern.exec(text);
+  if (!match) return null; // Nunca usar un resultado de otra fecha.
+  const before = text.slice(Math.max(0, match.index - 350), match.index);
+  const values = before.match(/\\b\\d{1,2}\\b/g) || [];
+  return validEight(values.slice(-8));
+}
+
+function parseConectate(html, date) {
+  const text = plainText(html);
+  const [year, month, day] = date.split("-").map(Number);
+  const monthName = MONTHS[month - 1].toLowerCase();
+  const dateVariants = [
+    new RegExp("(?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)?\\s*" + day + "\\s+de\\s+" + monthName + "(?:\\s+de\\s+" + year + ")?", "i"),
+    new RegExp(day + "\\s*[/.-]\\s*" + month + "\\s*[/.-]\\s*" + year, "i")
+  ];
+  let dateMatch = null;
+  for (const pattern of dateVariants) {
+    dateMatch = pattern.exec(text);
+    if (dateMatch) break;
+  }
+  if (!dateMatch) return null;
+  const section = text.slice(dateMatch.index, dateMatch.index + 2200);
+  const label = /Loto\\s*[-–—]\\s*Loto\\s*Más/i.exec(section);
+  if (!label) return null;
+  const afterLabel = section.slice(label.index + label[0].length, label.index + label[0].length + 180);
+  const values = afterLabel.match(/\\b\\d{1,2}\\b/g) || [];
+  return validEight(values.slice(0, 8));
+}
+
 async function getLatestDate() {
   const response = await fetch(`${FIRESTORE}:runQuery?key=${API_KEY}`, {
     method: "POST",
@@ -120,13 +185,26 @@ export async function runSync() {
     for (const url of articleUrls(date)) {
       try {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 10000);
-        const response = await fetch(url, {
-          signal: controller.signal,
-          headers: { "User-Agent": "Mozilla/5.0 (compatible; LotHope/2.1)" }
-        });
-        clearTimeout(timer);
-        if (response.ok) result = parseResult(await response.text());
+        const timer = setTimeout(() => controller.abort(), 12000);
+        let response;
+        try {
+          response = await fetch(url, {
+            signal: controller.signal,
+            redirect: "follow",
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
+              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+              "Accept-Language": "es-DO,es;q=0.9,en;q=0.8"
+            }
+          });
+          if (!response.ok) continue;
+          const html = await response.text();
+          if (url.includes("leidsa.com")) result = parseOfficialLeidsa(html, date);
+          else if (url.includes("conectate.com.do")) result = parseConectate(html, date);
+          else result = parseResult(html);
+        } finally {
+          clearTimeout(timer);
+        }
         if (result) break;
       } catch (_) {}
     }
@@ -144,3 +222,4 @@ export async function runSync() {
   }
   return { added, message: added ? `Se guardaron ${added} sorteo(s) en Firestore.` : "No hay resultados nuevos." };
 }
+
