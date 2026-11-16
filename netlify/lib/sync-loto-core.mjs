@@ -43,6 +43,7 @@ function articleUrls(key) {
     "https://www.leidsa.com/",
     "https://www.conectate.com.do/loterias/",
     "https://www.conectate.com.do/loterias/leidsa/loto-mas/",
+    `https://www.conectateloteria.com/sorteo-leidsa-loto-loto-mas.html?fecha=${key}`,
     cdn,
     mercado,
     mercado.replace(/-en-republica-dominicana\/$/, "/")
@@ -101,8 +102,23 @@ function parseOfficialLeidsa(html, date) {
   const match = datePattern.exec(text);
   if (!match) return null; // Nunca usar un resultado de otra fecha.
   const before = text.slice(Math.max(0, match.index - 350), match.index);
-  const values = before.match(/\\b\\d{1,2}\\b/g) || [];
+  const values = before.match(/\b\d{1,2}\b/g) || [];
   return validEight(values.slice(-8));
+}
+
+function parseConectateHistory(html, date) {
+  const text = plainText(html);
+  const [year, month, day] = date.split("-").map(Number);
+  const dateLabel = `${day} de ${MONTHS[month - 1].toLowerCase()} de ${year}`;
+  const labelIndex = text.toLowerCase().indexOf(dateLabel.toLowerCase());
+  if (labelIndex < 0) return null;
+  const section = text.slice(labelIndex, labelIndex + 260);
+  const row = section.match(/Loto\s*[-–—]\s*Loto\s*Más\s+((?:\d{1,2}\s+){7}\d{1,2})\s+\d{1,2}\/\d{1,2}/i);
+  if (row) return validEight(row[1].trim().split(/\s+/));
+  // En la vista filtrada por fecha, el encabezado muestra la fecha y luego los ocho números.
+  const afterDate = section.replace(dateLabel, " ");
+  const values = afterDate.match(/\b\d{1,2}\b/g) || [];
+  return validEight(values.slice(0, 8));
 }
 
 function parseConectate(html, date) {
@@ -120,10 +136,10 @@ function parseConectate(html, date) {
   }
   if (!dateMatch) return null;
   const section = text.slice(dateMatch.index, dateMatch.index + 2200);
-  const label = /Loto\\s*[-–—]\\s*Loto\\s*Más/i.exec(section);
+  const label = /Loto\s*[-–—]\s*Loto\s*Más/i.exec(section);
   if (!label) return null;
   const afterLabel = section.slice(label.index + label[0].length, label.index + label[0].length + 180);
-  const values = afterLabel.match(/\\b\\d{1,2}\\b/g) || [];
+  const values = afterLabel.match(/\b\d{1,2}\b/g) || [];
   return validEight(values.slice(0, 8));
 }
 
@@ -200,6 +216,7 @@ export async function runSync() {
           if (!response.ok) continue;
           const html = await response.text();
           if (url.includes("leidsa.com")) result = parseOfficialLeidsa(html, date);
+          else if (url.includes("conectateloteria.com")) result = parseConectateHistory(html, date);
           else if (url.includes("conectate.com.do")) result = parseConectate(html, date);
           else result = parseResult(html);
         } finally {
