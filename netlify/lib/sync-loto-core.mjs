@@ -33,9 +33,13 @@ function drawDates(lastDate) {
 }
 function articleUrls(key) {
   const [y,m,d] = key.split("-").map(Number);
-  const day = new Date(Date.UTC(y,m-1,d)).getUTCDay() === 3 ? "miercoles" : "sabado";
-  const slug = `https://revistamercado.do/actualidad/resultados-de-leidsa-del-${day}-${d}-de-${MONTHS[m-1].toLowerCase()}-de-${y}-en-republica-dominicana/`;
-  return [slug, slug.replace(/-en-republica-dominicana\/$/, "/")];
+  const month = MONTHS[m-1].toLowerCase();
+  const cdnDay = String(d).padStart(2, "0");
+  const cdn = `https://cdn.com.do/evergreen/resultados-leidsa-numeros-ganadores-del-${cdnDay}-de-${month}-de-${y}/?amp=1`;
+  const weekday = new Date(Date.UTC(y,m-1,d)).getUTCDay();
+  const day = weekday === 3 ? "miercoles" : "sabado";
+  const mercado = `https://revistamercado.do/actualidad/resultados-de-leidsa-del-${day}-${d}-de-${month}-de-${y}-en-republica-dominicana/`;
+  return [cdn, mercado, mercado.replace(/-en-republica-dominicana\/$/, "/")];
 }
 function parseResult(html) {
   const text = html
@@ -48,10 +52,13 @@ function parseResult(html) {
   if (!match) return null;
   const nums = [...new Set((match[1].match(/\d+/g) || []).map(Number))].sort((a,b)=>a-b);
   if (nums.length !== 6 || nums.some(n => n < 1 || n > 40)) return null;
+  // CDN publica ambos adicionales juntos: "Loto Más: 11, 04".
+  // Otras fuentes los separan como "Loto Más: 11" y "Súper Más: 04".
+  const combined = text.match(/Loto\s*M[áa]s\s*:\s*(\d{1,2})\s*[,/\-]\s*(\d{1,2})/i);
   const mm = text.match(/Loto\s*M[áa]s\s*:\s*(\d{1,2})/i);
   const sm = text.match(/S[úu]per\s*M[áa]s\s*:\s*(\d{1,2})/i);
-  let m = mm ? Number(mm[1]) : null;
-  let s = sm ? Number(sm[1]) : null;
+  let m = combined ? Number(combined[1]) : (mm ? Number(mm[1]) : null);
+  let s = combined ? Number(combined[2]) : (sm ? Number(sm[1]) : null);
   if (m < 1 || m > 12 || s < 1 || s > 15 || ((m == null) !== (s == null))) { m=null; s=null; }
   return { n: nums, m, s };
 }
