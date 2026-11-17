@@ -1,7 +1,0 @@
-[build]
-  publish = "public"
-  functions = "netlify/functions"
-
-# Descomenta las siguientes líneas si activas Scheduled Functions en Netlify:
-# [functions."sync-loto"]
-#   schedule = "10 21 * * 3,6"
