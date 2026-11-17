@@ -55,7 +55,7 @@ ul{list-style:none;margin:0;padding:0}li{display:flex;gap:10px;align-items:cente
 <header><div><h1>LotHope v2.0</h1><p id="sub"></p></div><div><div class="ap"><select id="th" aria-label="Tema de colores"><option value="auto">Tema automático</option><option value="claro">Claro</option><option value="oscuro">Oscuro</option><option value="oceano">Océano</option><option value="bosque">Bosque</option><option value="atardecer">Atardecer</option><option value="medianoche">Medianoche</option><option value="gamer">Gamer</option></select><select id="sz" aria-label="Tamaño de letra"><option value="15">Letra normal</option><option value="17">Letra grande</option><option value="19">Letra extra grande</option></select></div><button class="btn sec" id="hx">Descargar base actualizada (.xlsx)</button><div id="bk" class="note"></div></div></header>
 <nav role="tablist"><button data-t="reg" aria-selected="true">Registrar sorteo</button><button data-t="his" aria-selected="false">Historial</button><button data-t="est" aria-selected="false">Estadísticas</button><button data-t="gen" aria-selected="false">Jugadas y análisis</button><button data-t="dat" aria-selected="false">Datos y respaldo</button></nav>
 
-<section id="reg"><div class="card"><h2>Registro automático</h2><p id="auto" class="note">Revisando…</p><div class="row"><button class="btn sec" id="sync">Buscar resultado ahora</button></div><p class="note">Netlify busca y guarda el resultado automáticamente cada miércoles y sábado a las 9:10 PM (hora RD), aunque cierres esta página. También puedes solicitar una búsqueda manual.</p></div>
+<section id="reg"><div class="card"><h2>Registro automático</h2><p id="auto" class="note">Revisando…</p><div class="row"><button class="btn sec" id="sync">Buscar resultado ahora</button></div><p class="note">Cada miércoles y sábado, pasadas las 9:10 PM (hora RD), la app busca el resultado del Loto y lo guarda sola. Funciona cuando la app está abierta; si estaba cerrada, se pone al día al abrirla.</p></div>
 <div class="card"><h2>Nuevo sorteo</h2>
 <div class="row"><div><label for="fd">Fecha</label><input type="date" id="fd"></div>
 <div><label for="mas">Más</label><select id="mas"></select></div>
@@ -373,30 +373,29 @@ let P={th:'auto',sz:'15'};try{P=Object.assign(P,JSON.parse(localStorage.getItem(
 $('#th').value=P.th;$('#sz').value=P.sz;apply($('#th').value,$('#sz').value);
 ['#th','#sz'].forEach(s=>$(s).onchange=()=>{apply($('#th').value,$('#sz').value);try{localStorage.setItem(PK,JSON.stringify({th:$('#th').value,sz:$('#sz').value}))}catch(e){}});
 
-/* ===== Registro automático mediante Netlify Functions ===== */
+/* ===== Registro automático (miércoles y sábado, 9 PM hora RD) ===== */
+/* La búsqueda ahora la hace el servidor (Netlify). La página solo le pide que revise. */
+let syncing=false,autoStarted=false;
 async function autoSync(manual){
-  const st=$('#auto'),b=$('#sync');
-  if(b.disabled)return;
-  b.disabled=true;
-  st.textContent='Consultando el servicio automático…';
+  if(syncing||!D.length)return;
+  syncing=true;const st=$('#auto'),b=$('#sync');b.disabled=true;
   try{
-    const r=await fetch('/.netlify/functions/sync-loto',{method:'POST'});
-    const data=await r.json();
-    if(!r.ok)throw new Error(data.error||'No se pudo completar la búsqueda.');
-    if(data.added>0){
-      st.textContent='✅ Se registraron '+data.added+' sorteo(s) automáticamente.';
-      toast('Se agregaron '+data.added+' resultado(s) a la nube.');
-    }else{
-      st.textContent=data.message||'✅ No hay resultados pendientes. LotHope está al día.';
-      if(manual)toast(data.message||'No hay resultados nuevos.');
-    }
+    st.textContent='Buscando el resultado…';
+    const r=await fetch('/.netlify/functions/sync-loto-now',{cache:'no-store'});
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.error||('error '+r.status));
+    const hora=new Date().toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'});
+    const falta=(j.noEncontrados||[]).length;
+    st.textContent=(falta?'⏳ ':'✅ ')+j.mensaje+' Revisado '+hora+'.';
+    (j.registrados||[]).forEach(x=>toast('Sorteo del '+fmt(x.fecha)+' registrado automáticamente: '+x.n.join(' ')+(x.m!=null?' | Más '+x.m+', Súper Más '+x.s:'')));
+    if(falta&&manual)toast('No encontré el resultado todavía.',1);
   }catch(e){
-    st.textContent='⚠️ No se pudo consultar el servicio: '+e.message;
-    if(manual)toast('Error al buscar: '+e.message,1);
-  }finally{b.disabled=false;}
+    st.textContent='⚠️ No pude revisar: '+e.message;
+  }finally{syncing=false;b.disabled=false;}
 }
 $('#sync').onclick=()=>autoSync(true);
-
+setInterval(()=>autoSync(false),30*60*1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)autoSync(false)});
 
 sorteosRef.orderBy('d','asc').onSnapshot(
   snap=>{
