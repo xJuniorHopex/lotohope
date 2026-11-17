@@ -1,0 +1,12 @@
+{
+  "name": "lothope",
+  "version": "2.0.0",
+  "description": "LotHope v2.0 App",
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^11.11.0"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
