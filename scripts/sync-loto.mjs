@@ -1,6 +1,7 @@
-const PROJECT_ID = "hope-58505";
-const API_KEY = "AIzaSyATHAwacAzURuh-Rofy3CXevhuWlqNU-JI";
-const FIRESTORE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
+import { readFile, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+
+const DATA_FILE = resolve(process.cwd(), "data/resultados.json");
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -201,79 +202,43 @@ function parseConectate(html, date) {
   return validEight(values.slice(0, 8));
 }
 
-async function getLatestDate() {
-  const response = await fetch(`${FIRESTORE}:runQuery?key=${API_KEY}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      structuredQuery: {
-        from: [{ collectionId: "sorteos" }],
-        orderBy: [
-          { field: { fieldPath: "d" }, direction: "DESCENDING" }
-        ],
-        limit: 1
-      }
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error(`Firestore no permitió consultar el historial (${response.status}).`);
+async function readHistory() {
+  try {
+    const raw = await readFile(DATA_FILE, "utf8");
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data)) throw new Error("data/resultados.json no contiene un array.");
+    return data;
+  } catch (error) {
+    if (error.code === "ENOENT") throw new Error("No existe data/resultados.json. Se cancela para proteger el historial.");
+    throw error;
   }
-
-  const rows = await response.json();
-  return rows.find(x => x.document)?.document?.fields?.d?.stringValue || "";
 }
 
-function firestoreValue(value) {
-  if (value === null || value === undefined) {
-    return { nullValue: null };
-  }
-
-  if (typeof value === "string") {
-    return { stringValue: value };
-  }
-
-  if (Array.isArray(value)) {
-    return { arrayValue: { values: value.map(firestoreValue) } };
-  }
-
-  if (typeof value === "number") {
-    return { integerValue: String(value) };
-  }
-
-  return { nullValue: null };
+async function writeHistory(history) {
+  history.sort((a, b) => a.d.localeCompare(b.d) || String(a.id).localeCompare(String(b.id)));
+  await writeFile(DATA_FILE, JSON.stringify(history, null, 2) + "\n", "utf8");
 }
 
-async function saveDraw(date, result) {
-  const id = `auto-${date}`;
+function getLatestDate(history) {
+  return history.reduce((latest, row) => row.d > latest ? row.d : latest, "");
+}
 
-  const fields = {
-    d: firestoreValue(date),
-    n: firestoreValue(result.n),
-    m: firestoreValue(result.m),
-    s: firestoreValue(result.s)
-  };
-
-  const response = await fetch(`${FIRESTORE}/sorteos/${id}?key=${API_KEY}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ fields })
+function saveDraw(history, date, result) {
+  const duplicate = history.some(row => row.d === date && row.n.join(",") === result.n.join(","));
+  if (duplicate) return false;
+  history.push({
+    id: `auto-${date}`,
+    d: date,
+    n: result.n,
+    m: result.m,
+    s: result.s
   });
-
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(
-      `No se pudo guardar en Firestore (${response.status}): ${detail.slice(0, 300)}`
-    );
-  }
+  return true;
 }
 
 export async function runSync() {
-  const last = await getLatestDate();
+  const history = await readHistory();
+  const last = getLatestDate(history);
   const due = drawDates(last);
 
   if (!due.length) {
@@ -331,17 +296,19 @@ export async function runSync() {
       continue;
     }
 
-    await saveDraw(date, result);
-    added++;
-
-    console.log(`Resultado guardado: ${date}`, result);
+    if (saveDraw(history, date, result)) {
+      added++;
+      console.log(`Resultado agregado: ${date}`, result);
+    }
   }
+
+  if (added) await writeHistory(history);
 
   if (notFound.length) {
     return {
       added,
       message: added
-        ? `Se guardaron ${added} sorteo(s). Pendientes: ${notFound.join(", ")}.`
+        ? `Se agregaron ${added} sorteo(s) al JSON. Pendientes: ${notFound.join(", ")}.`
         : `Todavía no se encuentra publicado el resultado de: ${notFound.join(", ")}.`
     };
   }
@@ -349,7 +316,7 @@ export async function runSync() {
   return {
     added,
     message: added
-      ? `Se guardaron ${added} sorteo(s) en Firestore.`
+      ? `Se agregaron ${added} sorteo(s) a data/resultados.json.`
       : "No hay resultados nuevos."
   };
 }
