@@ -55,7 +55,7 @@ ul{list-style:none;margin:0;padding:0}li{display:flex;gap:10px;align-items:cente
 <header><div><h1>LotHope v2.0</h1><p id="sub"></p></div><div><div class="ap"><select id="th" aria-label="Tema de colores"><option value="auto">Tema automático</option><option value="claro">Claro</option><option value="oscuro">Oscuro</option><option value="oceano">Océano</option><option value="bosque">Bosque</option><option value="atardecer">Atardecer</option><option value="medianoche">Medianoche</option><option value="gamer">Gamer</option></select><select id="sz" aria-label="Tamaño de letra"><option value="15">Letra normal</option><option value="17">Letra grande</option><option value="19">Letra extra grande</option></select></div><button class="btn sec" id="hx">Descargar base actualizada (.xlsx)</button><div id="bk" class="note"></div></div></header>
 <nav role="tablist"><button data-t="reg" aria-selected="true">Registrar sorteo</button><button data-t="his" aria-selected="false">Historial</button><button data-t="est" aria-selected="false">Estadísticas</button><button data-t="gen" aria-selected="false">Jugadas y análisis</button><button data-t="dat" aria-selected="false">Datos y respaldo</button></nav>
 
-<section id="reg"><div class="card"><h2>Registro automático</h2><p id="auto" class="note">Revisando…</p><div class="row"><button class="btn sec" id="sync">Buscar resultado ahora</button></div><p class="note">Netlify busca y guarda el resultado automáticamente cada miércoles y sábado a las 9:10 PM (hora RD), aunque cierres esta página. También puedes solicitar una búsqueda manual.</p></div>
+<section id="reg"><div class="card"><h2>Registro automático</h2><p id="auto" class="note">Revisando…</p><div class="row"><button class="btn sec" id="sync">Buscar resultado ahora</button></div><p class="note">GitHub Actions consulta y registra los resultados automáticamente los miércoles y sábados. Los datos se guardan en Firebase y se actualizan en esta página. Puedes consultar nuevamente los datos cuando quieras.</p></div>
 <div class="card"><h2>Nuevo sorteo</h2>
 <div class="row"><div><label for="fd">Fecha</label><input type="date" id="fd"></div>
 <div><label for="mas">Más</label><select id="mas"></select></div>
@@ -122,7 +122,6 @@ const fmt=s=>{const t=pd(s);return `${DS[t.getDay()]} ${t.getDate()} ${MES[t.get
 
 let D=[];
 let tt;
-let autoStarted = false;
 function toast(m,bad){const t=$('#toast');t.textContent=m;t.className='show'+(bad?' bad':'');clearTimeout(tt);tt=setTimeout(()=>t.className='',4000)}
 function setConn(txt,cls){const c=$('#conn');c.textContent=txt;c.className=cls||''}
 
@@ -353,7 +352,7 @@ $('#ga').onclick=()=>{
   const n=[...new Set(($('#aq').value.match(/\d+/g)||[]).map(Number).filter(x=>x>=1&&x<=40))].sort((a,b)=>a-b);
   if(n.length!=6)return toast('Escribe 6 números distintos entre 1 y 40.',1);
   if(!D.length)return toast('No hay historial para comparar.',1);
-  const b=baseJugadas(),s=tot(n),ev=cnt(n,x=>x%2==0),lw=cnt(n,x<=20),dist=Array(7).fill(0),
+  const b=baseJugadas(),s=tot(n),ev=cnt(n,x=>x%2==0),lw=cnt(n,x=>x<=20),dist=Array(7).fill(0),
     sums=D.map(r=>tot(r.n)),pct=Math.round(sums.filter(x=>x<s).length/sums.length*100),
     exact=D.filter(r=>r.n.join()===n.join()).map(r=>fmt(r.d));
   D.forEach(r=>dist[cnt(r.n,x=>n.includes(x))]++);
@@ -374,30 +373,31 @@ let P={th:'auto',sz:'15'};try{P=Object.assign(P,JSON.parse(localStorage.getItem(
 $('#th').value=P.th;$('#sz').value=P.sz;apply($('#th').value,$('#sz').value);
 ['#th','#sz'].forEach(s=>$(s).onchange=()=>{apply($('#th').value,$('#sz').value);try{localStorage.setItem(PK,JSON.stringify({th:$('#th').value,sz:$('#sz').value}))}catch(e){}});
 
-/* ===== Registro automático mediante Netlify Functions ===== */
+/* ===== Actualización manual desde Firebase ===== */
 async function autoSync(manual){
   const st=$('#auto'),b=$('#sync');
   if(b.disabled)return;
   b.disabled=true;
-  st.textContent='Consultando el servicio automático…';
+  st.textContent='Consultando los resultados guardados en Firebase…';
   try{
-    const r=await fetch('/.netlify/functions/sync-loto',{method:'POST'});
-    const data=await r.json();
-    if(!r.ok)throw new Error(data.error||'No se pudo completar la búsqueda.');
-    if(data.added>0){
-      st.textContent='✅ Se registraron '+data.added+' sorteo(s) automáticamente.';
-      toast('Se agregaron '+data.added+' resultado(s) a la nube.');
-    }else{
-      st.textContent=data.message||'✅ No hay resultados pendientes. LotHope está al día.';
-      if(manual)toast(data.message||'No hay resultados nuevos.');
-    }
+    const snap=await sorteosRef.orderBy('d','asc').get();
+    D=snap.docs.map(doc=>{
+      const x=doc.data();
+      return {id:doc.id,d:x.d,n:x.n,m:x.m,s:x.s};
+    });
+    setConn('🟢 Conectado — '+D.length+' sorteos','ok');
+    render();
+    paint(true);
+    st.textContent='✅ Datos actualizados correctamente desde Firebase. '+D.length+' sorteos registrados.';
+    if(manual)toast('Historial actualizado correctamente.');
   }catch(e){
-    st.textContent='⚠️ No se pudo consultar el servicio: '+e.message;
-    if(manual)toast('Error al buscar: '+e.message,1);
-  }finally{b.disabled=false;}
+    st.textContent='⚠️ No se pudieron actualizar los datos: '+e.message;
+    if(manual)toast('Error al consultar Firebase: '+e.message,1);
+  }finally{
+    b.disabled=false;
+  }
 }
 $('#sync').onclick=()=>autoSync(true);
-
 
 sorteosRef.orderBy('d','asc').onSnapshot(
   snap=>{
@@ -409,7 +409,6 @@ sorteosRef.orderBy('d','asc').onSnapshot(
     if(!$('#fd').value) $('#fd').value=nextDraw();
     render();
     paint(true);
-    if(!autoStarted){autoStarted=true;autoSync(false);}
   },
   err=>{
     setConn('🔴 Error: '+err.message,'err');
