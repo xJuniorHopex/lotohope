@@ -1,24 +1,24 @@
-name: Actualizar resultados LotoHope
+name: Sincronizar resultados LotoHope
 
 on:
   schedule:
+    # 11:00 p. m. en República Dominicana (UTC-4), con reintentos cada 10 min.
+    # Jueves UTC = miércoles local; domingo UTC = sábado local.
     - cron: '*/10 3-6 * * 4,0'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: lotohope-results
-  cancel-in-progress: true
+  group: lotohope-sync
+  cancel-in-progress: false
 
 jobs:
-  actualizar:
+  sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-
     steps:
-      - name: Descargar proyecto
+      - name: Descargar repositorio
         uses: actions/checkout@v4
 
       - name: Configurar Node.js
@@ -26,5 +26,17 @@ jobs:
         with:
           node-version: 20
 
-      - name: Consultar resultados
+      - name: Consultar resultados y actualizar JSON
         run: node scripts/sync-loto.mjs
+
+      - name: Guardar cambios en GitHub
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/resultados.json
+          if git diff --cached --quiet; then
+            echo "No hay cambios nuevos que guardar."
+          else
+            git commit -m "Actualizar resultados de LotoHope"
+            git push
+          fi
