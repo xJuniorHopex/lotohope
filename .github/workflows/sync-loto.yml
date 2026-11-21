@@ -1,33 +1,83 @@
-name: Sincronizar resultados LotoHope
+name: Sincronizar resultados LEIDSA
 
 on:
   schedule:
-    # 11:00 p. m. en República Dominicana (UTC-4), con reintentos cada 10 min.
-    # Jueves UTC = miércoles local; domingo UTC = sábado local.
-    - cron: '*/10 3-6 * * 4,0'
+    # 9:00, 10:00 y 11:00 p. m. en República Dominicana (UTC-4),
+    # miércoles y sábados locales. En UTC ya es jueves y domingo.
+    - cron: "0 1,2,3 * * 4,0"
   workflow_dispatch:
 
 permissions:
   contents: write
 
-concurrency:
-  group: lotohope-sync
-  cancel-in-progress: false
-
 jobs:
-  sync:
+  actualizar-resultados:
     runs-on: ubuntu-latest
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+      - name: Consultar LEIDSA y actualizar resultados.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+          from urllib.request import Request, urlopen
 
-      - name: Consultar resultados y actualizar JSON
-        run: node scripts/sync-loto.mjs
+          owner = os.environ["GITHUB_REPOSITORY"].split("/")[0]
+          repo = os.environ["GITHUB_REPOSITORY"].split("/")[1]
+          today = datetime.now(ZoneInfo("America/Santo_Domingo")).date().isoformat()
+          api = "https://api.elboletoganador.com/api/sorteos/buscar/historial?id=9&fecha=" + today
+          req = Request(api, headers={"User-Agent": "LotHope-GitHub-Actions", "Accept": "application/json"})
+          with urlopen(req, timeout=30) as response:
+              payload = json.loads(response.read().decode("utf-8"))
+
+          historial = payload.get("historial") or []
+          if not historial:
+              print("LEIDSA todavía no publica un sorteo para", today)
+              raise SystemExit(0)
+
+          latest = historial[0]
+          numero = str(latest.get("numero_sorteo") or "").strip()
+          fecha = str(latest.get("fecha_sorteo") or "")[:10]
+          premios = [int(x) for x in str(latest.get("premios") or "").split("-")]
+          if not numero or len(fecha) != 10 or len(premios) != 6 or len(set(premios)) != 6 or any(n < 1 or n > 40 for n in premios):
+              raise ValueError("La API devolvió un resultado con formato inesperado; no se modificó la base.")
+
+          path = Path("data/resultados.json")
+          path.parent.mkdir(parents=True, exist_ok=True)
+          data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+          if not isinstance(data, list):
+              raise ValueError("data/resultados.json no contiene una lista JSON.")
+
+          nums = sorted(premios)
+          draw_id = "leidsa-" + numero
+          duplicate = any(
+              str(row.get("id", "")) == draw_id
+              or (row.get("d") == fecha and sorted(row.get("n", [])) == nums)
+              for row in data if isinstance(row, dict)
+          )
+          if duplicate:
+              print("El sorteo", numero, "ya está registrado. No se hicieron cambios.")
+              raise SystemExit(0)
+
+          raw_mas = latest.get("loto1")
+          try:
+              mas = int(raw_mas) if raw_mas not in (None, "", 0, "0") else None
+          except (TypeError, ValueError):
+              mas = None
+
+          data.append({"id": draw_id, "d": fecha, "n": nums, "m": mas, "s": None})
+          data.sort(key=lambda row: (row.get("d", ""), row.get("id", "")))
+          path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          print("Sorteo", numero, "guardado:", fecha, nums, "Más:", mas)
+          PY
 
       - name: Guardar cambios en GitHub
         run: |
@@ -35,8 +85,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/resultados.json
           if git diff --cached --quiet; then
-            echo "No hay cambios nuevos que guardar."
+            echo "No hay resultados nuevos para guardar."
           else
-            git commit -m "Actualizar resultados de LotoHope"
+            git commit -m "Actualizar resultados LEIDSA"
             git push
           fi
