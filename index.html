@@ -55,7 +55,7 @@ ul{list-style:none;margin:0;padding:0}li{display:flex;gap:10px;align-items:cente
 <header><div><h1>LotHope v2.0</h1><p id="sub"></p></div><div><div class="ap"><select id="th" aria-label="Tema de colores"><option value="auto">Tema automático</option><option value="claro">Claro</option><option value="oscuro">Oscuro</option><option value="oceano">Océano</option><option value="bosque">Bosque</option><option value="atardecer">Atardecer</option><option value="medianoche">Medianoche</option><option value="gamer">Gamer</option></select><select id="sz" aria-label="Tamaño de letra"><option value="15">Letra normal</option><option value="17">Letra grande</option><option value="19">Letra extra grande</option></select></div><button class="btn sec" id="hx">Descargar base actualizada (.xlsx)</button><div id="bk" class="note"></div></div></header>
 <nav role="tablist"><button data-t="reg" aria-selected="true">Registrar sorteo</button><button data-t="his" aria-selected="false">Historial</button><button data-t="est" aria-selected="false">Estadísticas</button><button data-t="gen" aria-selected="false">Jugadas y análisis</button><button data-t="dat" aria-selected="false">Datos y respaldo</button></nav>
 
-<section id="reg"><div class="card"><h2>Registro automático</h2><p id="auto" class="note">Revisando…</p><div class="row"><button class="btn sec" id="sync">Buscar resultado ahora</button></div><p class="note">GitHub Actions consulta y registra los resultados automáticamente los miércoles y sábados. Los resultados se publican en el archivo data/resultados.json de GitHub. Puedes consultar nuevamente los datos cuando quieras.</p></div>
+<section id="reg"><div class="card"><h2>Registro automático</h2><p id="auto" class="note">Revisando…</p><div class="row"><button class="btn sec" id="sync">Buscar resultado ahora</button></div><p class="note">LotHope consulta los resultados de LEIDSA y guarda los nuevos sorteos en data/resultados.json de GitHub. La consulta automática también se ejecuta los miércoles y sábados por la noche.</p></div>
 <div class="card"><h2>Nuevo sorteo</h2>
 <div class="row"><div><label for="fd">Fecha</label><input type="date" id="fd"></div>
 <div><label for="mas">Más</label><select id="mas"></select></div>
@@ -106,6 +106,7 @@ const GH_REPO='lotohope';
 const GH_BRANCH='main';
 const DATA_PATH='data/resultados.json';
 const DATA_URL=`https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${DATA_PATH}`;
+const LEIDSA_API='https://api.elboletoganador.com/api/sorteos/buscar/historial?id=9&fecha=';
 let githubToken='';
 let dataSha='';
 
@@ -423,7 +424,53 @@ async function autoSync(manual){
     if(manual)toast('Error al consultar GitHub: '+e.message,1);
   }finally{b.disabled=false;}
 }
-$('#sync').onclick=()=>autoSync(true);
+async function updateFromLeidsa(){
+  const st=$('#auto'),b=$('#sync');
+  if(b.disabled)return;
+  b.disabled=true;
+  st.textContent='Consultando el último resultado de LEIDSA…';
+  try{
+    const today=iso(new Date());
+    const response=await fetch(LEIDSA_API+today,{cache:'no-store'});
+    if(!response.ok)throw new Error('La fuente de resultados respondió '+response.status+'.');
+    const payload=await response.json();
+    const latest=payload?.historial?.[0];
+    if(!latest){
+      D=await loadData();render();paint(true);
+      setConn('🟢 GitHub — '+D.length+' sorteos','ok');
+      st.textContent='No hay un sorteo nuevo publicado todavía. La base de GitHub está al día.';
+      toast('LEIDSA todavía no ha publicado un resultado nuevo.');
+      return;
+    }
+    const drawNo=String(latest.numero_sorteo??'').trim();
+    const date=String(latest.fecha_sorteo??'').slice(0,10);
+    const nums=String(latest.premios??'').split('-').map(x=>Number.parseInt(x,10));
+    if(!drawNo||!/^\d{4}-\d{2}-\d{2}$/.test(date)||nums.length!==6||nums.some(n=>!Number.isInteger(n)||n<1||n>40)||new Set(nums).size!==6)
+      throw new Error('El resultado recibido no tiene el formato esperado; no se guardó nada.');
+    if(!githubToken)throw new Error('Resultado encontrado, pero debes conectar tu token en Datos y respaldo para guardarlo en GitHub.');
+    D=await loadData();
+    const id='leidsa-'+drawNo;
+    const sorted=nums.slice().sort((a,b)=>a-b);
+    const exists=D.some(r=>r.id===id||(r.d===date&&r.n.join(',')===sorted.join(',')));
+    if(exists){
+      render();paint(true);setConn('🟢 GitHub — '+D.length+' sorteos','ok');
+      st.textContent='✅ El sorteo '+drawNo+' ya estaba registrado en GitHub.';
+      toast('Ese sorteo ya está en tu base de datos.');
+      return;
+    }
+    const mas=latest.loto1==null||latest.loto1===''||Number(latest.loto1)===0?null:Number(latest.loto1);
+    D.push({id,d:date,n:sorted,m:Number.isFinite(mas)?mas:null,s:null});
+    await saveData('Registrar sorteo LEIDSA '+drawNo+' ('+date+')');
+    render();paint(true);
+    st.textContent='✅ Sorteo '+drawNo+' consultado y guardado en GitHub.';
+    toast('¡Sorteo '+drawNo+' guardado en tu base de GitHub!');
+  }catch(e){
+    setConn('🔴 Error de sincronización','err');
+    st.textContent='⚠️ '+e.message;
+    toast('No se pudo sincronizar: '+e.message,1);
+  }finally{b.disabled=false;}
+}
+$('#sync').onclick=updateFromLeidsa;
 
 $('#ghconnect').onclick=async()=>{
   const token=$('#ghtoken').value.trim();
