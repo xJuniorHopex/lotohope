@@ -2,8 +2,7 @@ name: Sincronizar resultados LEIDSA
 
 on:
   schedule:
-    # 9:00, 10:00 y 11:00 p. m. en República Dominicana (UTC-4),
-    # miércoles y sábados locales. En UTC ya es jueves y domingo.
+    # Miércoles y sábados a las 9:00, 10:00 y 11:00 p. m. (hora RD, UTC-4).
     - cron: "0 1,2,3 * * 4,0"
   workflow_dispatch:
 
@@ -17,38 +16,75 @@ jobs:
       - name: Descargar repositorio
         uses: actions/checkout@v4
 
-      - name: Consultar LEIDSA y actualizar resultados.json
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Consultar los últimos 14 días y recuperar sorteos faltantes
         run: |
-          python - <<'PY'
+          python - <<'PYCODE'
           import json
-          import os
+          import re
           import subprocess
-          from datetime import datetime
+          from datetime import datetime, timedelta
           from pathlib import Path
           from zoneinfo import ZoneInfo
           from urllib.request import Request, urlopen
+          from urllib.error import HTTPError, URLError
 
-          owner = os.environ["GITHUB_REPOSITORY"].split("/")[0]
-          repo = os.environ["GITHUB_REPOSITORY"].split("/")[1]
-          today = datetime.now(ZoneInfo("America/Santo_Domingo")).date().isoformat()
-          api = "https://api.elboletoganador.com/api/sorteos/buscar/historial?id=9&fecha=" + today
-          req = Request(api, headers={"User-Agent": "LotHope-GitHub-Actions", "Accept": "application/json"})
-          with urlopen(req, timeout=30) as response:
-              payload = json.loads(response.read().decode("utf-8"))
+          base = "https://api.elboletoganador.com/api/sorteos/buscar/historial?id=9&fecha="
+          today = datetime.now(ZoneInfo("America/Santo_Domingo")).date()
+          dates = [(today - timedelta(days=i)).isoformat() for i in range(13, -1, -1)]
+          found = []
+          errors = []
 
-          historial = payload.get("historial") or []
-          if not historial:
-              print("LEIDSA todavía no publica un sorteo para", today)
-              raise SystemExit(0)
+          for day in dates:
+              url = base + day
+              req = Request(url, headers={
+                  "User-Agent": "LotHope-GitHub-Actions",
+                  "Accept": "application/json"
+              })
+              try:
+                  with urlopen(req, timeout=25) as response:
+                      payload = json.loads(response.read().decode("utf-8"))
+                  rows = payload.get("historial") or []
+                  if isinstance(rows, dict):
+                      rows = [rows]
+                  for item in rows:
+                      if not isinstance(item, dict):
+                          continue
+                      number = str(item.get("numero_sorteo") or "").strip()
+                      raw_date = str(item.get("fecha_sorteo") or "")[:10]
+                      try:
+                          draw_date = datetime.strptime(raw_date, "%Y-%m-%d").date().isoformat()
+                      except ValueError:
+                          continue
+                      raw_numbers = item.get("premios") or ""
+                      if isinstance(raw_numbers, list):
+                          pieces = raw_numbers
+                      else:
+                          pieces = re.findall(r"\d+", str(raw_numbers))
+                      try:
+                          numbers = [int(x) for x in pieces]
+                      except (TypeError, ValueError):
+                          continue
+                      if (not number or len(numbers) != 6 or len(set(numbers)) != 6
+                              or any(n < 1 or n > 40 for n in numbers)):
+                          continue
+                      raw_mas = item.get("loto1")
+                      try:
+                          mas = int(raw_mas) if raw_mas not in (None, "", 0, "0") else None
+                      except (TypeError, ValueError):
+                          mas = None
+                      found.append({
+                          "id": "leidsa-" + number,
+                          "d": draw_date,
+                          "n": sorted(numbers),
+                          "m": mas,
+                          "s": None
+                      })
+              except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+                  errors.append(f"{day}: {exc}")
+                  print(f"Aviso: no se pudo consultar {day}: {exc}")
 
-          latest = historial[0]
-          numero = str(latest.get("numero_sorteo") or "").strip()
-          fecha = str(latest.get("fecha_sorteo") or "")[:10]
-          premios = [int(x) for x in str(latest.get("premios") or "").split("-")]
-          if not numero or len(fecha) != 10 or len(premios) != 6 or len(set(premios)) != 6 or any(n < 1 or n > 40 for n in premios):
-              raise ValueError("La API devolvió un resultado con formato inesperado; no se modificó la base.")
+          if not found and errors:
+              raise RuntimeError("No se pudo consultar la API en ninguno de los días. " + "; ".join(errors))
 
           path = Path("data/resultados.json")
           path.parent.mkdir(parents=True, exist_ok=True)
@@ -56,28 +92,25 @@ jobs:
           if not isinstance(data, list):
               raise ValueError("data/resultados.json no contiene una lista JSON.")
 
-          nums = sorted(premios)
-          draw_id = "leidsa-" + numero
-          duplicate = any(
-              str(row.get("id", "")) == draw_id
-              or (row.get("d") == fecha and sorted(row.get("n", [])) == nums)
-              for row in data if isinstance(row, dict)
-          )
-          if duplicate:
-              print("El sorteo", numero, "ya está registrado. No se hicieron cambios.")
-              raise SystemExit(0)
+          added = 0
+          for draw in sorted(found, key=lambda x: (x["d"], x["id"])):
+              duplicate = any(
+                  isinstance(row, dict) and (
+                      str(row.get("id", "")) == draw["id"] or
+                      (row.get("d") == draw["d"] and sorted(row.get("n", [])) == draw["n"])
+                  )
+                  for row in data
+              )
+              if not duplicate:
+                  data.append(draw)
+                  added += 1
+                  print("Nuevo sorteo:", draw["id"], draw["d"], draw["n"])
 
-          raw_mas = latest.get("loto1")
-          try:
-              mas = int(raw_mas) if raw_mas not in (None, "", 0, "0") else None
-          except (TypeError, ValueError):
-              mas = None
-
-          data.append({"id": draw_id, "d": fecha, "n": nums, "m": mas, "s": None})
-          data.sort(key=lambda row: (row.get("d", ""), row.get("id", "")))
-          path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-          print("Sorteo", numero, "guardado:", fecha, nums, "Más:", mas)
-          PY
+          if added:
+              data.sort(key=lambda row: (row.get("d", ""), str(row.get("id", ""))))
+              path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          print(f"Consulta terminada: {added} sorteo(s) nuevo(s); {len(data)} en total.")
+          PYCODE
 
       - name: Guardar cambios en GitHub
         run: |
