@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LotHope v2.0</title>
+<title>LotHope | Gestión de sorteos</title>
 <style>
 :root{--bg:#F3F5F2;--panel:#fff;--ink:#14232B;--mute:#5B6B70;--line:#D5DCD8;--acc:#0E6B63;--gold:#C98A12;--bad:#B8322A;--ball:#E9EEEB;--f:"Bahnschrift","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;--b:"Segoe UI","Segoe UI Variable Text",system-ui,sans-serif}
 @media(prefers-color-scheme:dark){:root{--bg:#0F1A1F;--panel:#16252C;--ink:#E6EEEA;--mute:#93A5AA;--line:#2A3B43;--acc:#3FB8A8;--gold:#E6B04A;--bad:#E8786F;--ball:#22343C}}
@@ -15,26 +15,26 @@ html[data-theme=gamer]{--bg:#0D0B14;--panel:#161226;--ink:#EDE8FF;--mute:#9D93C4
 .ap{display:flex;gap:8px;margin-bottom:8px;justify-content:flex-end;flex-wrap:wrap}.ap select{padding:5px 8px;font-size:13px}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:var(--fs,15px)/1.5 var(--b)}
-header{display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between;align-items:end;padding:20px clamp(16px,4vw,40px) 10px}
-h1{font:700 28px var(--f);margin:0}#sub{margin:2px 0 0;color:var(--mute)}
+header{display:flex;flex-wrap:wrap;gap:14px 24px;justify-content:space-between;align-items:center;padding:24px clamp(16px,4vw,40px) 18px;max-width:1280px;margin:auto}
+h1{font:750 30px var(--f);margin:0;letter-spacing:-.6px}#sub{margin:2px 0 0;color:var(--mute)}
 .note{font-size:13px;color:var(--mute)}.note.warn{color:var(--bad);font-weight:600}
-nav{display:flex;gap:4px;padding:0 clamp(16px,4vw,40px);border-bottom:1px solid var(--line);overflow-x:auto}
-nav button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;font:600 15px var(--b);color:var(--mute);cursor:pointer;white-space:nowrap}
+nav{display:flex;gap:6px;padding:0 clamp(16px,4vw,40px);border-bottom:1px solid var(--line);overflow-x:auto;background:var(--bg);position:sticky;top:0;z-index:8}
+nav button{background:none;border:0;border-bottom:3px solid transparent;padding:12px 15px;font:600 15px var(--b);color:var(--mute);cursor:pointer;white-space:nowrap}
 nav button[aria-selected=true]{color:var(--ink);border-color:var(--acc)}
-section{max-width:980px;margin:0 auto;padding:20px clamp(16px,4vw,40px) 60px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+section{max-width:1120px;margin:0 auto;padding:26px clamp(16px,4vw,40px) 64px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 5px 18px #14232b08}
 h2{font:700 18px var(--f);margin:0 0 10px}p{margin:6px 0}
 label{display:block;font-weight:600;font-size:13px;margin-bottom:4px}
-input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;max-width:100%}input:focus,select:focus{border-color:var(--acc)}
 button{font:inherit;cursor:pointer}:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
-.btn{background:var(--acc);color:var(--bg);border:0;border-radius:6px;padding:10px 18px;font-weight:600}
-.btn.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn{background:var(--acc);color:var(--bg);border:0;border-radius:8px;padding:10px 18px;font-weight:650;transition:filter .15s,transform .15s}
+.btn.sec{background:var(--panel);color:var(--ink);border:1px solid var(--line)}.btn:hover{filter:brightness(.96);transform:translateY(-1px)}
 .row{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:end;margin:12px 0}
 #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:6px;margin:10px 0}
 #grid button{aspect-ratio:1;border-radius:50%;border:1px solid var(--line);background:var(--ball);color:var(--ink);font:600 16px var(--f)}
 #grid button.on{background:var(--ink);color:var(--bg)}
 .sb{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--ball);font:600 13px var(--f);margin-right:4px}
-table{width:100%;border-collapse:collapse}th{text-align:left;font-size:13px;color:var(--mute)}td,th{padding:8px 6px;border-bottom:1px solid var(--line)}
+table{width:100%;border-collapse:collapse}#his .card{overflow-x:auto}#tb tr:hover{background:var(--ball)}th{text-align:left;font-size:13px;color:var(--mute)}td,th{padding:8px 6px;border-bottom:1px solid var(--line)}
 .lk{background:none;border:0;color:var(--bad);text-decoration:underline}
 #board{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:14px 6px;margin-top:12px}
 .cell{text-align:center}.cell small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
@@ -47,6 +47,9 @@ ul{list-style:none;margin:0;padding:0}li{display:flex;gap:10px;align-items:cente
 .play{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:8px 0;border-bottom:1px solid var(--line)}.play small{color:var(--mute)}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;z-index:20}
 #toast.show{opacity:1}#toast.bad{background:var(--bad);color:#fff}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.actions .lk{font-weight:650;padding:5px 8px;text-decoration:none;border-radius:6px}.actions .edit{color:var(--acc)}
+#editModal{position:fixed;inset:0;z-index:1000;background:#07121899;display:none;place-items:center;padding:18px}#editModal.open{display:grid}#editModal .modalCard{width:min(520px,100%);max-height:90vh;overflow:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:0 20px 60px #0004}#editModal .fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#editModal input,#editModal select{width:100%}#editModal .modalActions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}#auto{display:none}
+@media(max-width:620px){header{align-items:flex-start}header>div:last-child{width:100%}header .ap{justify-content:flex-start}header #hx{margin-top:4px}#editModal .fields{grid-template-columns:1fr 1fr}.card{padding:16px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 #conn{position:fixed;top:8px;right:8px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--mute);z-index:10}
 #conn.ok{color:var(--acc);border-color:var(--acc)}#conn.err{color:var(--bad);border-color:var(--bad)}
@@ -71,11 +74,10 @@ body:not(.authenticated)>header,body:not(.authenticated)>nav,body:not(.authentic
  </div>
 </div>
 <div id="conn">Conectando…</div>
-<header><div><h1>LotHope v2.0</h1><p id="sub"></p></div><div><div class="ap"><select id="th" aria-label="Tema de colores"><option value="auto">Tema automático</option><option value="claro">Claro</option><option value="oscuro">Oscuro</option><option value="oceano">Océano</option><option value="bosque">Bosque</option><option value="atardecer">Atardecer</option><option value="medianoche">Medianoche</option><option value="gamer">Gamer</option></select><select id="sz" aria-label="Tamaño de letra"><option value="15">Letra normal</option><option value="17">Letra grande</option><option value="19">Letra extra grande</option></select></div><button class="btn sec" id="hx">Descargar base actualizada (.xlsx)</button><div id="bk" class="note"></div></div></header>
+<header><div><h1>LotHope</h1><p id="sub"></p></div><div><div class="ap"><select id="th" aria-label="Tema de colores"><option value="auto">Tema automático</option><option value="claro">Claro</option><option value="oscuro">Oscuro</option><option value="oceano">Océano</option><option value="bosque">Bosque</option><option value="atardecer">Atardecer</option><option value="medianoche">Medianoche</option><option value="gamer">Gamer</option></select><select id="sz" aria-label="Tamaño de letra"><option value="15">Letra normal</option><option value="17">Letra grande</option><option value="19">Letra extra grande</option></select></div><div class="row" style="justify-content:flex-end;margin:6px 0"><button class="btn" id="sync" type="button">Actualizar datos</button><button class="btn sec" id="hx">Descargar Excel</button></div><div id="bk" class="note"></div></div></header>
 <nav role="tablist"><button data-t="reg" aria-selected="true">Registrar sorteo</button><button data-t="his" aria-selected="false">Historial</button><button data-t="est" aria-selected="false">Estadísticas</button><button data-t="gen" aria-selected="false">Jugadas y análisis</button><button data-t="dat" aria-selected="false">Datos y respaldo</button></nav>
 
-<section id="reg"><div class="card"><h2>Registro automático</h2><p id="auto" class="note">Revisando…</p><div class="row"><button class="btn sec" id="sync">Buscar resultado ahora</button></div><p class="note">LotHope consulta los resultados de LEIDSA y guarda los nuevos sorteos en data/resultados.json de GitHub. La consulta automática también se ejecuta los miércoles y sábados por la noche.</p></div>
-<div class="card"><h2>Nuevo sorteo</h2>
+<section id="reg"><p id="auto" class="note">Revisando…</p><div class="card"><h2>Nuevo sorteo</h2>
 <div class="row"><div><label for="fd">Fecha</label><input type="date" id="fd"></div>
 <div><label for="mas">Más</label><select id="mas"></select></div>
 <div><label for="sm">Súper Más</label><select id="sm"></select></div></div>
@@ -85,7 +87,7 @@ body:not(.authenticated)>header,body:not(.authenticated)>nav,body:not(.authentic
 <p class="note">Más y Súper Más son opcionales: si el sorteo no los tuvo, deja los dos vacíos.</p></div></section>
 
 <section id="his" hidden><div class="card"><h2>Historial (más reciente primero)</h2>
-<table><thead><tr><th>Fecha</th><th>Números</th><th>Más</th><th>Súper Más</th><th></th></tr></thead><tbody id="tb"></tbody></table>
+<table><thead><tr><th>Fecha</th><th>Números</th><th>Más</th><th>Súper Más</th><th>Acciones</th></tr></thead><tbody id="tb"></tbody></table>
 <div class="row"><button class="btn sec" id="more">Ver más sorteos</button></div></div></section>
 
 <section id="est" hidden><div class="card"><h2>Tablero de números</h2>
@@ -99,11 +101,11 @@ body:not(.authenticated)>header,body:not(.authenticated)>nav,body:not(.authentic
 
 <section id="gen" hidden>
 <div class="card"><h2>Generar jugadas</h2>
-<div class="row"><div><label for="st">Estrategia</label><select id="st"><option value="m">Equilibrada (frecuencia y atraso)</option><option value="f">Los más salidos</option><option value="a">Los más atrasados</option><option value="n">Los que nunca han salido</option><option value="r">Al azar con filtros</option></select></div>
+<div class="row"><div><label for="gt">Tipo de jugada</label><select id="gt"><option value="n">Loto normal · 6 números</option><option value="m">Loto + Más</option><option value="s">Loto + Súper Más</option><option value="ms">Loto + Más + Súper Más</option></select></div><div><label for="st">Estrategia</label><select id="st"><option value="m">Equilibrada (frecuencia y atraso)</option><option value="f">Los más salidos</option><option value="a">Los más atrasados</option><option value="n">Los que nunca han salido</option><option value="r">Al azar con filtros</option></select></div>
 <div><label for="np">Cuántas jugadas</label><select id="np"><option>1</option><option>3</option><option selected>5</option><option>10</option></select></div>
 <div><label for="gw">Base de análisis</label><select id="gw"><option value="0">Todo el historial</option><option value="100">Últimos 100</option><option value="52">Últimos 52</option><option value="26">Últimos 26</option><option value="13">Últimos 13</option></select></div>
 <button class="btn" id="gg">Generar jugadas</button></div>
-<p class="note">Cada jugada cumple filtros tomados del historial: suma dentro del rango donde cae el 80% de los sorteos, entre 2 y 4 pares, entre 2 y 4 números bajos (1 a 20), sin tres seguidos y sin repetir una combinación que ya salió. Ninguna combinación tiene más probabilidad que otra.</p>
+<p class="note">Las jugadas se generan según el tipo seleccionado. Los números principales cumplen filtros tomados del historial: suma dentro del rango donde cae el 80% de los sorteos, entre 2 y 4 pares, entre 2 y 4 números bajos (1 a 20), sin tres seguidos y sin repetir una combinación que ya salió. Ninguna combinación tiene más probabilidad que otra.</p>
 <p class="note" id="gnote"></p><div id="plays"></div></div>
 <div class="card"><h2>Analizar una jugada</h2>
 <div class="row"><div><label for="aq">Tus 6 números</label><input id="aq" placeholder="4 8 27 29 30 35" size="26" autocomplete="off"></div><button class="btn" id="ga">Analizar jugada</button></div>
@@ -115,8 +117,9 @@ body:not(.authenticated)>header,body:not(.authenticated)>nav,body:not(.authentic
 <div class="row"><button class="btn" id="xl">Descargar Excel (.xlsx)</button><button class="btn sec" id="cs">Descargar CSV</button></div></div>
 <div class="card"><h2>Importar</h2><p>Sirve el mismo formato de tu archivo: columnas #1 a #6, Mas, Super Mas, Dia, Mes y Año. Los sorteos se agregarán al historial de GitHub.</p>
 <input type="file" id="fi" accept=".xlsx,.xls,.csv"></div>
-<div class="card"><h2>Restablecer</h2><p>Borra TODOS los sorteos del archivo de GitHub. Esta acción no se puede deshacer; descarga primero un respaldo.</p><button class="btn sec" id="rs">Borrar todo el historial</button></div></section>
+</section>
 <div id="toast" role="status" aria-live="polite"></div>
+<div id="editModal" role="dialog" aria-modal="true" aria-labelledby="editTitle"><div class="modalCard"><h2 id="editTitle">Editar sorteo</h2><div class="fields"><div><label for="editDate">Fecha</label><input type="date" id="editDate"></div><div><label for="editNums">Los 6 números</label><input id="editNums" inputmode="numeric" placeholder="4 8 27 29 30 35"></div><div><label for="editMas">Más</label><select id="editMas"><option value="">—</option></select></div><div><label for="editSuper">Súper Más</label><select id="editSuper"><option value="">—</option></select></div></div><p class="note">Puedes modificar la fecha, los seis números y los números adicionales.</p><div class="modalActions"><button class="btn sec" id="cancelEdit" type="button">Cancelar</button><button class="btn" id="saveEdit" type="button">Guardar cambios</button></div></div></div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <script>
@@ -239,19 +242,23 @@ function hist(){
     tr.insertCell().innerHTML=r.n.map(x=>`<span class="sb">${x}</span>`).join('');
     tr.insertCell().textContent=r.m??'—';
     tr.insertCell().textContent=r.s??'—';
-    const b=document.createElement('button');
-    b.className='lk';b.textContent='Borrar';
-    b.onclick=async ()=>{
-      if(confirm('¿Borrar el sorteo del '+fmt(r.d)+'?')){
-        try{D=D.filter(x=>x.id!==r.id);await saveData('Borrar sorteo '+r.d);toast('Sorteo borrado de GitHub.');}
-        catch(e){toast('Error al borrar: '+e.message,1);await autoSync(false);}
-      }
-    };
-    tr.insertCell().append(b);
+    const actions=document.createElement('div');actions.className='actions';
+    const edit=document.createElement('button');edit.className='lk edit';edit.textContent='Editar';edit.type='button';edit.onclick=()=>openEdit(r.id);
+    const del=document.createElement('button');del.className='lk';del.textContent='Borrar';del.type='button';
+    del.onclick=async ()=>{if(confirm('¿Borrar el sorteo del '+fmt(r.d)+'?')){const previous=D.slice();try{D=D.filter(x=>x.id!==r.id);await saveData('Borrar sorteo '+r.d);toast('Sorteo borrado de GitHub.');}catch(e){D=previous;render();toast('Error al borrar: '+e.message,1);}}};
+    actions.append(edit,del);tr.insertCell().append(actions);
   });
   $('#more').hidden = shown>=D.length;
 }
 $('#more').onclick=()=>{shown+=60;hist();};
+let editingId=null;
+for(let i=1;i<=12;i++)$('#editMas').add(new Option(i,i));
+for(let i=1;i<=15;i++)$('#editSuper').add(new Option(i,i));
+function openEdit(id){const r=D.find(x=>x.id===id);if(!r)return;editingId=id;$('#editDate').value=r.d;$('#editNums').value=r.n.join(' ');$('#editMas').value=r.m??'';$('#editSuper').value=r.s??'';$('#editModal').classList.add('open');}
+function closeEdit(){$('#editModal').classList.remove('open');editingId=null;}
+$('#cancelEdit').onclick=closeEdit;
+$('#editModal').addEventListener('click',e=>{if(e.target.id==='editModal')closeEdit();});
+$('#saveEdit').onclick=async()=>{const r=D.find(x=>x.id===editingId);if(!r)return closeEdit();const d=$('#editDate').value,n=[...new Set(($('#editNums').value.match(/\d+/g)||[]).map(Number))].sort((a,b)=>a-b),m=$('#editMas').value,s=$('#editSuper').value;if(!d)return toast('Elige una fecha.',1);if(n.length!==6||n.some(x=>x<1||x>40))return toast('Escribe 6 números distintos entre 1 y 40.',1);const previous=D.map(x=>({...x,n:[...x.n]}));Object.assign(r,{d,n,m:m===''?null:+m,s:s===''?null:+s});try{await saveData('Editar sorteo '+d);closeEdit();render();toast('Sorteo actualizado correctamente.');}catch(e){D=previous;render();toast('No se pudieron guardar los cambios: '+e.message,1);}};
 
 function stats(){
   const w=+$('#win').value;
@@ -348,17 +355,6 @@ $('#fi').onchange=async e=>{
   }finally{e.target.value='';}
 };
 
-$('#rs').onclick=async ()=>{
-  if(!confirm('Esto borra TODOS los sorteos del archivo data/resultados.json en GitHub. ¿Continuar?'))return;
-  try{
-    if(!confirm('Confirmación final: se eliminarán todos los registros de data/resultados.json. ¿Estás completamente seguro?'))return;
-    const previous=D;
-    D=[];
-    try{await saveData('Restablecer historial de LotHope');toast('Historial borrado de GitHub.');}
-    catch(err){D=previous;throw err;}
-  }catch(e){toast('Error al borrar: '+e.message,1);}
-};
-
 const tot=a=>a.reduce((x,y)=>x+y,0);
 const cnt=(n,f)=>n.filter(f).length;
 function baseJugadas(){
@@ -386,7 +382,7 @@ function lowJ(f,max){const m=Math.min(...f.slice(1,max+1));const c=[];for(let i=
 function oneJ(f,max,uni){let r=Math.random()*(uni?max:tot(f.slice(1,max+1).map(v=>v+1))),i=1;for(;i<max;i++){r-=uni?1:f[i]+1;if(r<=0)break}return i}
 $('#gg').onclick=()=>{
   if(D.length<30)return toast('Necesito al menos 30 sorteos en el historial.',1);
-  const b=baseJugadas(),st=$('#st').value,np=+$('#np').value,mf=Math.max(...b.fr.slice(1),1),ma=Math.max(...b.at.slice(1),1),w=[0];
+  const b=baseJugadas(),st=$('#st').value,np=+$('#np').value,type=$('#gt').value,mf=Math.max(...b.fr.slice(1),1),ma=Math.max(...b.at.slice(1),1),w=[0];
   const z=[];for(let i=1;i<=40;i++)if(!b.fr[i])z.push(i);
   $('#gnote').textContent=st==='n'?(z.length?'Sin salir en la base elegida: '+z.join(', ')+'.':'En esta base los 40 números ya han salido, así que se priorizan los menos salidos.'):'';
   for(let i=1;i<=40;i++)w[i]=st==='f'?b.fr[i]+1:st==='a'?b.at[i]+1:st==='n'?(b.fr[i]===0?1000:1/(b.fr[i]+1)):st==='r'?1:b.fr[i]/mf+b.at[i]/ma+.3;
@@ -395,9 +391,9 @@ $('#gg').onclick=()=>{
     const n=pickJugada(w),key=n.join(),s=tot(n),ev=cnt(n,x=>x%2==0),lw=cnt(n,x=>x<=20);
     if(s<b.lo||s>b.hi||ev<2||ev>4||lw<2||lw>4||n.some((x,i)=>n[i+2]===x+2)||past.has(key)||got.includes(key))continue;
     got.push(key);
-    out.push({n,s,ev,lw,m:st==='n'?lowJ(b.fm,12):oneJ(b.fm,12,st==='r'),sm:st==='n'?lowJ(b.fs,15):oneJ(b.fs,15,st==='r')});
+    out.push({n,s,ev,lw,m:type==='m'||type==='ms'?(st==='n'?lowJ(b.fm,12):oneJ(b.fm,12,st==='r')):null,sm:type==='s'||type==='ms'?(st==='n'?lowJ(b.fs,15):oneJ(b.fs,15,st==='r')):null});
   }
-  $('#plays').innerHTML=out.length?out.map(p=>`<div class="play">${p.n.map(x=>`<span class="sb">${x}</span>`).join('')}<span>Más ${p.m}, Súper Más ${p.sm}</span><small>suma ${p.s}, ${p.ev} pares, ${p.lw} bajos</small></div>`).join(''):'<p>No pude armar jugadas con esos filtros. Prueba otra estrategia u otra base.</p>';
+  $('#plays').innerHTML=out.length?out.map(p=>`<div class="play">${p.n.map(x=>`<span class="sb">${x}</span>`).join('')}${p.m!==null?`<span>Más <b>${p.m}</b></span>`:''}${p.sm!==null?`<span>Súper Más <b>${p.sm}</b></span>`:''}<small>suma ${p.s}, ${p.ev} pares, ${p.lw} bajos</small></div>`).join(''):'<p>No pude armar jugadas con esos filtros. Prueba otra estrategia u otra base.</p>';
 };
 $('#ga').onclick=()=>{
   const n=[...new Set(($('#aq').value.match(/\d+/g)||[]).map(Number).filter(x=>x>=1&&x<=40))].sort((a,b)=>a-b);
